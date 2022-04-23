@@ -3,36 +3,27 @@ const bcryptjs = require('bcryptjs');
 
 const User = require('../models/user');
 
-const usersGet = (req, res = response) => {
+const usersGet = async (req, res = response) => {
 
-    const {q, name = 'noname', apikey, page = 1, limit} = req.query;
+    const {limit = 5, from = 0} = req.query;
 
-    res.json({
-        msg:'get API - controller',
-        q,
-        name,
-        apikey,
-        page,
-        limit
-    });
+    const query = {status : true};
+
+    const [total, users] = await Promise.all([
+        User.countDocuments(query),
+        User.find(query).skip(from).limit(limit)    
+    ]);
+
+    res.json({total, users});
 }
 
 const usersPost = async (req, res) => {
 
-    const {name, mail, password, role} = req.body;
+    const { name, mail, password, role } = req.body;
 
     const user = new User({
         name, mail, password, role
     });
-
-    //Verify if mail exists
-    const mailExists = await User.findOne({mail});
-
-    if(mailExists) {
-        return res.status(400).json({
-            msg: 'Mail is already registered'
-        });
-    }
 
     //Encrypt password
     const salt = bcryptjs.genSaltSync();
@@ -41,31 +32,36 @@ const usersPost = async (req, res) => {
     //Store in DB
     await user.save();
 
-    res.json({
-        msg:'post API - controller',
-        user
-    })
+    res.json(user);
 };
 
-const usersPut = (req, res) => {
+const usersPut = async (req, res) => {
 
-    const {id} = req.params;
+    const { id } = req.params;
+    const { _id, password, google, ...other } = req.body;
 
-    res.status(500).json({
-        msg:'put API - controller',
-        id
-    })
+    //TODO Validate with DB
+
+    if (password) {
+        //Encrypt password
+        const salt = bcryptjs.genSaltSync();
+        other.password = bcryptjs.hashSync(password, salt);
+    }
+
+    const user = await User.findByIdAndUpdate(id, other);
+
+    res.json(user);
 };
 
 const usersDelete = (req, res) => {
     res.json({
-        msg:'delete API - controller'
+        msg: 'delete API - controller'
     })
 };
 
 const usersPatch = (req, res) => {
     res.json({
-        msg:'patch API - controller'
+        msg: 'patch API - controller'
     })
 };
 
